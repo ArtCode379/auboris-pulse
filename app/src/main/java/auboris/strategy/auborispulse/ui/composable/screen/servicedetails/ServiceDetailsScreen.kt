@@ -1,20 +1,42 @@
 package auboris.strategy.auborispulse.ui.composable.screen.servicedetails
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import auboris.strategy.auborispulse.R
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import auboris.strategy.auborispulse.data.model.ServiceModel
 import auboris.strategy.auborispulse.ui.composable.shared.ZVOPDContentWrapper
-import auboris.strategy.auborispulse.ui.composable.shared.ZVOPDEmptyView
 import auboris.strategy.auborispulse.ui.state.DataUiState
 import auboris.strategy.auborispulse.ui.viewmodel.ServiceDetailsViewModel
+import coil3.compose.AsyncImage
 import org.koin.androidx.compose.koinViewModel
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ServiceDetailsScreen(
@@ -24,50 +46,84 @@ fun ServiceDetailsScreen(
     onNavigateToCheckout: (serviceId: Int) -> Unit,
 ) {
     val serviceState by viewModel.serviceState.collectAsState()
-
-    LaunchedEffect(Unit) {
+    LaunchedEffect(serviceId) {
         viewModel.observeServiceById(serviceId)
     }
-
-    ServiceDetailsContent(
-        serviceState = serviceState,
-        modifier = modifier,
-        onNavigateToCheckout = onNavigateToCheckout
+    ZVOPDContentWrapper(
+        dataState = serviceState,
+        dataPopulated = {
+            ServiceDetails((serviceState as DataUiState.Populated).data, modifier, onNavigateToCheckout)
+        },
+        dataEmpty = {
+            Column(modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
+                Text("Service details are unavailable.")
+            }
+        },
     )
 }
 
 @Composable
-private fun ServiceDetailsContent(
-    serviceState: DataUiState<ServiceModel>,
-    modifier: Modifier = Modifier,
-    onNavigateToCheckout: (serviceId: Int) -> Unit,
-) {
-    Column(modifier = modifier) {
-        ZVOPDContentWrapper<ServiceModel>(
-            dataState = serviceState,
-
-            dataPopulated = {
-                ServicesDetailsPopulated(
-                    service = (serviceState as DataUiState.Populated).data,
-                    onNavigateToCheckout = onNavigateToCheckout,
-                )
-            },
-
-            dataEmpty = {
-                ZVOPDEmptyView(
-                    primaryText = stringResource(R.string.zvopd_services_state_empty_primary_text),
-                    modifier = Modifier.fillMaxSize(),
-                )
-            },
-        )
-    }
-}
-
-@Composable
-private fun ServicesDetailsPopulated(
+private fun ServiceDetails(
     service: ServiceModel,
-    modifier: Modifier = Modifier,
+    modifier: Modifier,
     onNavigateToCheckout: (serviceId: Int) -> Unit,
 ) {
-
+    LazyColumn(modifier = modifier.fillMaxSize()) {
+        item {
+            AsyncImage(
+                model = service.imageUrl,
+                contentDescription = service.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp)
+                    .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+                contentScale = ContentScale.Crop,
+            )
+        }
+        item {
+            Column(Modifier.padding(20.dp)) {
+                Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = RoundedCornerShape(50)) {
+                    Text(service.category, Modifier.padding(horizontal = 12.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(service.name, style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "From $${service.price.toInt()} · ${service.durationMinutes} min",
+                    color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(service.description, style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(20.dp))
+                Text("What is included", style = MaterialTheme.typography.titleLarge)
+                service.features.forEach { feature ->
+                    Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.tertiary)
+                        Spacer(Modifier.width(10.dp))
+                        Text(feature)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text("Available times", style = MaterialTheme.typography.titleLarge)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(service.availableTime.orEmpty()) { time ->
+                        Card {
+                            Text(time.format(DateTimeFormatter.ofPattern("HH:mm")), Modifier.padding(12.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(22.dp))
+                Button(
+                    onClick = { onNavigateToCheckout(service.id) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Text("Book Consultation")
+                }
+            }
+        }
+    }
 }
